@@ -1,0 +1,56 @@
+set colored-stats on
+# base-files version 4.1-1
+
+# ~/.inputrc: readline initialization file.
+
+$if Bash
+  # Don't ring bell on completion
+  set bell-style none
+
+  # or, don't beep at me - show me
+  set bell-style visible
+
+  # Filename completion/expansion
+  #set completion-ignore-case on
+  #set show-all-if-ambiguous on
+
+  # Expand homedir name
+  set expand-tilde on
+
+  # Append "/" to all dirnames
+  set mark-directories on
+  #set mark-symlinked-directories on
+
+  # Match all files
+  set match-hidden-files on
+
+  # 'Magic Space'
+  # Insert a space character then performs
+  # a history expansion in the line
+  #Space: magic-space
+#$endif
+# Key-bindings for the command-line editor.
+
+# Ask before displaying >50 items
+# Since $WINDIR $PATH var can be in $PATH, this could list
+# all window exectables in C:\WINDOWS
+set completion-query-items 50
+
+# Ignore case for the command-line-completion functionality
+# on:  default to a Windows style console
+# off: default to a *nix style console
+set completion-ignore-case off
+
+# none, visible or audible
+set bell-style visible
+
+# disable/enable 8bit input
+# visible-stats
+# Append a mark according to the file type in a listing
+set visible-stats on
+set mark-directories on
+
+## arrow up
+"\e[A":history-search-backward
+## arrow down
+"\e[B":history-search-forward
