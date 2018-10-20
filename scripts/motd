@@ -1,0 +1,52 @@
+#!/bin/bash
+
+#stty size / 3
+#third=$(stty size); third=${third/ / }; third=${( $third / 3}
+
+# add an bloglike entry, display latest entries, from stdin or pipe
+# should fork an archiver/indexer and use some markov templates for
+# variety, also sort by hostname or user and set default to display
+# so can be shared amongst many machines to keep take quick cli notes
+# use fold?
+
+
+addmotd_template () {
+  echo -e "\n[c. $(date)] @${HOST} as ${USER} .. \n";
+}
+
+
+# copy banner to new file in banner.old and link to motd
+# then make an index and do sstats and place it in the template
+
+if [ -n "$(find -L /etc/banner.old/motd -ctime -14)" ]; then
+  echo -e "Archiving motd ...\n\n"
+  newfile="$(date '+%F'.motd)"
+  cp /etc/motd "/etc/banner.old/$newfile"
+  ln -sf "/etc/banner.old/$newfile" /etc/banner.old/motd
+fi
+
+#addmotd ()
+#{
+  # if input is available (pipe) direct it into motd.tmp.$$ 
+  # then append to motd. 
+
+  if [ $(read -t 0 -) ]; then
+  sh -c 'cat - > motd.tmp.$$; echo input taken into consideration..'
+fi 
+# elsewise, check for arguments, or display.
+if [ -n "$*" ]; then
+  echo "$*" >> motd.tmp.$$
+fi
+
+# check for new tmp files, then process and discard
+if [ -f "motd.tmp.$$" ]; then
+  echo "$(addmotd_template)" >> /etc/motd && cat motd.tmp.$$ >> /etc/motd.$$ && rm -f motd.tmp.$$
+fi
+
+# show the last n lines of motd, and show word stats at end
+echo; tail -n15 -v /etc/motd | cat -An | tee >(wc); echo;
+#}
+
+#[ -n "$@" ] && { echo addmotd("$@"); }
+#echo -e "\n[c. $(date)] @${HOST} as ${USER} .. \n$@\n" >> /etc/motd'
+#alias motd='addmotd "$@"'

@@ -1,0 +1,23 @@
+#!/usr/bin/python
+import subprocess
+
+code = '/usr/bin/whereami -r'
+p = subprocess.Popen(code, stdout=subprocess.PIPE, shell=True)
+output = eval(p.communicate()[0])
+
+def sample():
+	output = {
+		'ip': '97.97.145.62',
+		'country_code': 'US',
+		'country_name': 'United States',
+		'region_code': 'FL',
+		'region_name': 'Florida',
+		'city': 'Lakeland',
+		'zip_code': '33811',
+		'time_zone': 'America/New_York',
+		'latitude': 27.9857,
+		'longitude': -82.0135,
+		'metro_code': 539
+	}
+
+print output['ip']

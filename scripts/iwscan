@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use POSIX qw(strftime);
+
+open(LIST, '/sbin/iwlist scan 2>&1 |')
+  or die 'Failed: $!\n';
+
+my (%wifi, $bssid, $line);
+
+sub print_csv() {
+  while (<LIST>) {
+    if (/Address:\s(\S*)/) { $bssid = $1; }
+      elsif (/ESSID:""$/) { $wifi{$bssid}->{'essid'} = '[hidden]'; }
+      elsif (/ESSID:"(\S*)"/) { $wifi{$bssid}->{'essid'} = $1; }
+      elsif (/Signal\slevel=(.*)\sdBm/) { $wifi{$bssid}->{'rssi'} = $1; }
+  }
+  my $ts = strftime "%D %X", localtime;
+  $ts =~ s@[:/]@.@g;
+  $ts =~ s/\s/_/g;
+
+  foreach $bssid ( keys %wifi ) {
+    printf "%s,%s,%s,%d\n", $ts, $wifi{$bssid}->{'essid'},
+                            $bssid,$wifi{$bssid}->{'rssi'};
+  }
+  
+  exit(0)
+}
+
+if(defined $ARGV[0]) {
+  print_csv()
+    if $ARGV[0] eq '-c';
+  print <LIST>
+    if $ARGV[0] eq '-a';
+  exit(0);
+}
+
+while (<LIST>) {
+  chomp;
+  if(m/\s*(.*(Cell|Channel:|Quality|ESSID).*)\s*/) {
+    $line = $1;
+    if($line =~ m/^Cell/) { print "\n$line\n"; }
+    else { print "\t$line\n"; }
+  }
+}
+

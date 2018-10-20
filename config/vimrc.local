@@ -1,0 +1,23 @@
+set ts=2
+set sw=2
+set softtabstop=2
+set number
+set expandtab
+set undofile
+set undodir=~/.vim/undodir
+set modeline
+
+syn on
+set ai
+
+map  :set number<cr>
+map  :set nonumber<cr>
+
+map  :next<cr>
+map  :prev<cr>
+map  :setlocal paste!<cr>
+
+map W :w<cr>
+map R :redo<cr>
+
+set mouse=

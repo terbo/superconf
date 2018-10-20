@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# log types
+#
+# music (lastmp, mpd)
+# network (dnsmasq)
+# remote
+# auth/security
+# monit
+# web
+
+EXCLUDE2='fakemail atop .old .gz .\[0-9\]'
+EXCLUDE2=$(for e in ${EXCLUDE2//\ / }; do echo -n "-e $e "; done)
+SEARCH='-type f -ctime -10'
+
+case "$2" in
+  dns)
+    LOGS='/var/log/dnsmasq.log'
+  ;;
+  remote)
+    LOGS=$(find /var/log/remote $SEARCH | grep -v $EXCLUDE2 )
+  ;;
+  apache)
+    LOGS=$(find /var/log/apache2 $SEARCH | grep -v $EXCLUDE2 )
+  ;;
+  *)
+  ;&
+  logs)
+    EXCLUDE='apache dnsmasq mongodb fakemail remote kismet probes account paact .\[0-9\]'
+    EXCLUDE=$(for e in ${EXCLUDE//\ / }; do echo -n "-e $e "; done)
+    
+    LOGS=$(find /var/log $SEARCH | grep -v $EXCLUDE | grep -v $EXCLUDE2 )
+  ;;
+esac
+
+#FILES=$(file $LOGS | grep -i text | awk -F': ' '{print $1}')
+
+files=($LOGS)
+declare -A logfiles
+
+for file in ${files[@]}; do
+  O=$(file $file | grep -q ASCII)
+  test -z "$O" && logfiles["$file"]=$file
+done
+
+test -z "$1" || xtail ${logfiles[@]} | /usr/bin/ccze -A >& /dev/$1
+test -z "$1" && xtail ${logfiles[@]} | /usr/bin/ccze -A
+
+#vcrontab

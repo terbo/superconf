@@ -1,0 +1,33 @@
+#!/usr/bin/python
+
+import os
+import datetime as dt
+import manuf
+
+LEASEFILE='/var/lib/misc/dnsmasq.leases'
+
+leases = open(LEASEFILE,'r').read().split('\n')
+out = {}
+ips = list()
+m = manuf.MacParser()
+
+for lease in leases:
+  l = lease.split()
+  if l:
+    (time,mac,ip,name) = l[0:4] 
+    oui = m.get_manuf(mac)
+    
+    #host = socket.gethostbyaddr(ip)[0]
+    
+    date = dt.datetime.strftime(dt.datetime.fromtimestamp(float(time)),'%D %R')
+    
+    out[mac] = {'time': time, 'date': date,
+                'name': name, 'ip': ip,
+                'oui': oui}
+
+for h in sorted(out,
+    cmp=lambda a,b: cmp(out[b]['time'], out[a]['time'])):
+  info = out[h] 
+  print("%-15s\tleased @ %s\n    %s\t%s\n    %s" % \
+    (info['name'], info['date'], info['ip'],
+    h,info['oui']))

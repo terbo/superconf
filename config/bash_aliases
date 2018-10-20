@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+## debug settings
+
+nodebug() {
+  set +v +x +u
+}
+
+setdebug() {
+  set -v -x -u
+}
+
+nodebug
+
+unset HISTCONTROL
+HISTFILESIZE=9999999999
+export MPD_HOST=mp3
+
+shopt -s autocd
+shopt -s dirspell
+shopt -s cdspell
+
+shopt -s checkjobs
+
+shopt -s checkwinsize
+shopt -s histappend
+shopt -s cmdhist
+
+color_prompt=yes
+force_color_prompt=yes
+
+set -o noclobber
+
+export HISTTIMEFORMAT='  %F %T  '
+
+PAGER='less -RXE'
+EDITOR='vim'
+LANG=C
+
+## searching
+
+## shell and file ops
+alias d='ls -h --color -laF'
+alias ls='ls --color'
+alias lsort='ls -Sharl'
+alias df='df -h'
+
+alias j='jobs -l'
+alias -- -='cd -'
+
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias h='history'
+alias m='$PAGER'
+alias v='vi'
+#alias vi='$EDITOR'
+
+alias rm='rm -vi'
+alias cp='cp -vi'
+alias mv='mv -vi'
+
+alias rmf='/bin/rm -fv'
+alias cpf='/bin/cp -fv'
+alias mvf='/bin/mv -fv'
+
+alias -- +x='chmod +x'
+alias -- -x='chmod -x'
+
+## common
+
+alias rehash='source ~/.bashrc'
+alias re=rehash
+alias ircname=echo
+alias sed='sed -r'
+alias lane='perl -lane'
+
+alias wget='wget --no-check-certificate'
+alias vol='mpc volume'
+
+vim_undodir() {
+  dir="$HOME/.vim/undodir"
+  for oname in ${dir}/*
+  do
+    name="$(echo $oname | sed -e 's@.*/@@' -e 's@%@/@g' )"
+    size=$(stat -c '%s' $oname)
+    #fsize=$(echo $size | perl -ne 'use Number::Bytes::Human qw(format_bytes); print format_bytes($_)')
+    echo "$name - $size $(nformat -s $size)"
+    echo "$name - $fsize"
+  done
+
+  #later:
+  #ls -l `ls -1ct | sed -e 's@.*/@@' -e 's@%@/@g' | head -30`
+}
+
+CGREP_COLOR='-A1 -B2 -aHn --color=always'
+alias grep='egrep'
+alias cgrep='GREP_COLOR=${CGREP_COLOR} grep'
+
+function volfade() { local step stop vol dir; dir='+'; [ -z "$1" ] && stop=100; [ -n "$1" ] && stop="$1"; [ -z "$2" ] && step='.4'; [ -n "$2" ] && step="$2"; vol=$( mpc volume | sed -e s/volume:\ // -e s/%// ); [ $stop -lt $vol ] && dir='-'; while [ $vol -ne $stop ]; do mpc -q volume $vol; vol=$(( $vol $dir 1 )); echo -ne "$step $vol\r"; sleep $step; done; }
+
+alias acpi='acpi -V'
+
+test -d ~/.history || mkdir ~/.history
+test -d ~/.vim/undodir || mkdir -p ~/.vim/undodir
+
+TTY=$(echo $(tty) | sed -e s@/dev/@@ -e s@pts/@@ )
+[[ -n "$TTY" ]] && export HISTFILE="${HOME}/.history/bash.history.${TTY}"
+
+if [ -t 1 ]; then
+  bind "set completion-ignore-case on"
+  bind "set completion-map-case on"
+  bind "set show-all-if-ambiguous on"
+fi
+
+alias sensors='pssh -Ph ~/.pssh'
+alias sensorstats="sensors 'uname -a; top -bn1|head -4;df -h .|tail -1; '"
+alias senscreen='screen -S sensors -c /root/.screen/sensors.screenrc'
+#echo "$HOSTNAME:${PPWD##*/}/${PWD##*/}"
+alias services='service --status-all | egrep \\+'
+alias iwinfo='iw phy phy0 info'
