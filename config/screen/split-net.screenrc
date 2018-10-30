@@ -1,0 +1,14 @@
+hardstatus ignore
+
+screen nload
+split -v
+
+resize +14
+
+focus
+screen watch -d -c -n 60 'leases | ccze -A'
+
+split
+
+focus
+screen watch -d -c -n 10 'COLUMNS=90 w -hus 2>&1 | fold -w 40 | ccze -A '

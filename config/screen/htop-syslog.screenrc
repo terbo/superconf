@@ -1,0 +1,12 @@
+# log into several machines at once and split the screen
+
+screen -t t     --  assh -v 1.11
+split
+focus
+screen -t r   --  assh -v 1.8
+split -v
+focus
+screen -t t2     --  assh -v 1.7
+focus
+split -v
+screen -t t3      --  assh -v 1.9

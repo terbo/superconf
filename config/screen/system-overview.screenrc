@@ -1,0 +1,17 @@
+#!/usr/bin/screen -S sysmon -T linux -c ~/.screen/screen-system-monitor.rc
+
+screen -t 'switcher'  -- bash -c 'while true; sleep $(( $RANDOM % 10 )); screen -X next'
+screen -t CPU@$HOST   -- screen -S sysmon-tty1 -c ~/.screen/split-load.screenrc
+screen -t CPU@d       -- assh -t d 'screen -S sysmon-tty1 -c ~/.screen/split-load.screenrc'
+screen -t 't'         -- htop
+screen -t 'd'         -- assh -t d htop
+screen -t 't1'        -- assh -t t1 '. bin/screen-split'
+screen -t 't2'        -- assh -t t2 '. bin/screen-split'
+screen -t monitor     -- w3m http://k:999
+screen -t net@t       -- screen -S netmon-tty1 -c ~/.screen/split-net.screenrc
+screen -t net@d       -- assh -t d 'screen -S netmon-tty1 -c ~/.screen/split-net.screenrc'
+screen -t interfaces  -- nload -m
+screen -t syslog      -- colortail
+screen -t remotelog   -- colortail '' remote
+screen -t apachelog   -- colortail '' apach
+#screen -t traffic     -- iptraf -i eth0

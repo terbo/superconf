@@ -1,0 +1,13 @@
+#!/usr/bin/screen -S netmon -c ~/.screen/screen-network-monitor.rc
+screen -t ip
+assh ip
+screen -t t1
+assh t1
+screen -t t2
+assh t2
+screen -t g 
+assh g
+screen -t s
+assh s
+screen -t d
+assh d

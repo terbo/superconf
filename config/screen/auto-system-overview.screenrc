@@ -1,0 +1,13 @@
+#!/usr/bin/screen -S sysmon -T linux -c ~/.screen/screen-system-monitor.rc
+
+# open up several screens of system info, and switch between them randomly
+# good for an old tablet to monitor network status
+
+screen -t logs/sw     -- /root/bin/screenswitch colortail
+screen -t CPU@$HOST   -- screen -S sysmon-tty1 -c ~/.screen/split-load.screenrc
+screen -t 'top stats' -- htop
+screen -t processes   -- atop
+screen -t dns         -- colortail dns
+screen -t network     -- screen -S netmon-tty1 -c ~/.screen/split-net.screenrc
+screen -t interfaces  -- nload -m
+screen -t traffic     -- iptraf-ng -i eth0

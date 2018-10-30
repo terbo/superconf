@@ -1,0 +1,9 @@
+hardstatus ignore
+screen ttyload
+split 
+resize +9
+focus
+screen watch -n 10 -c -d discus
+split -v
+resize +15
+focus
