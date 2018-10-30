@@ -6,6 +6,7 @@ set expandtab
 set undofile
 set undodir=~/.vim/undodir
 set modeline
+set ignorecase
 
 syn on
 set ai

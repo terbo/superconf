@@ -12,32 +12,8 @@ setdebug() {
 
 nodebug
 
-unset HISTCONTROL
-HISTFILESIZE=9999999999
-export MPD_HOST=mp3
-
-shopt -s autocd
-shopt -s dirspell
-shopt -s cdspell
-
-shopt -s checkjobs
-
-shopt -s checkwinsize
-shopt -s histappend
-shopt -s cmdhist
-
-color_prompt=yes
-force_color_prompt=yes
-
-set -o noclobber
-
-export HISTTIMEFORMAT='  %F %T  '
-
-PAGER='less -RXE'
-EDITOR='vim'
-LANG=C
-
 ## searching
+## ??
 
 ## shell and file ops
 alias d='ls -h --color -laF'
