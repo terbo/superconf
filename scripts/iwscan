@@ -12,6 +12,7 @@ my (%wifi, $bssid, $line);
 sub print_csv() {
   while (<LIST>) {
     if (/Address:\s(\S*)/) { $bssid = $1; }
+      elsif (/Channel:(\d+)/) { $wifi{$bssid}->{'channel'} = $1; }
       elsif (/ESSID:""$/) { $wifi{$bssid}->{'essid'} = '[hidden]'; }
       elsif (/ESSID:"(\S*)"/) { $wifi{$bssid}->{'essid'} = $1; }
       elsif (/Signal\slevel=(.*)\sdBm/) { $wifi{$bssid}->{'rssi'} = $1; }
@@ -21,14 +22,34 @@ sub print_csv() {
   $ts =~ s/\s/_/g;
 
   foreach $bssid ( keys %wifi ) {
-    printf "%s,%s,%s,%d\n", $ts, $wifi{$bssid}->{'essid'},
-                            $bssid,$wifi{$bssid}->{'rssi'};
+    printf "%s,%s,%s,%d,%d\n", $ts, $wifi{$bssid}->{'essid'},
+                            $bssid,$wifi{$bssid}->{'rssi'}, $wifi{$bssid}->{'channel'};
   }
   
   exit(0)
 }
 
+sub print_json() {
+  while (<LIST>) {
+    if (/Address:\s(\S*)/) { $bssid = $1; }
+      elsif (/Channel:(\d+)/) { $wifi{$bssid}->{'channel'} = $1; }
+      elsif (/ESSID:""$/) { $wifi{$bssid}->{'essid'} = '[hidden]'; }
+      elsif (/ESSID:"(\S*)"/) { $wifi{$bssid}->{'essid'} = $1; }
+      elsif (/Signal\slevel=(.*)\sdBm/) { $wifi{$bssid}->{'rssi'} = $1; }
+  }
+  print('{"considerIp": "false", "wifiAccessPoints": ['."\n");
+  foreach $bssid ( keys %wifi ) {
+    printf ' {"macAddress": "%s", "signalStrength": "%s", "channel": "%s"},', 
+                            $bssid,$wifi{$bssid}->{'rssi'}, $wifi{$bssid}->{'channel'};
+    print("");
+  }
+  print("  ]\n}\n");
+  exit(0);
+}
+
 if(defined $ARGV[0]) {
+  print_json()
+    if $ARGV[0] eq '-j';
   print_csv()
     if $ARGV[0] eq '-c';
   print <LIST>
@@ -38,10 +59,11 @@ if(defined $ARGV[0]) {
 
 while (<LIST>) {
   chomp;
-  if(m/\s*(.*(Cell|Channel:|Quality|ESSID).*)\s*/) {
+  if(m/\s*(.*(ESSID|Cell|Channel:|Quality).*)\s*/) {
     $line = $1;
-    if($line =~ m/^Cell/) { print "\n$line\n"; }
-    else { print "\t$line\n"; }
+    if($line =~ m/^Cell/) { print "\n$line "; }
+    else { print "\t$line"; }
   }
 }
 
+print "\n";

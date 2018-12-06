@@ -9,7 +9,7 @@
 # monit
 # web
 
-EXCLUDE2='fakemail atop .old .gz .\[0-9\]'
+EXCLUDE2='dns fakemail atop .old .gz .\[0-9\]'
 EXCLUDE2=$(for e in ${EXCLUDE2//\ / }; do echo -n "-e $e "; done)
 SEARCH='-type f -ctime -10'
 
@@ -26,7 +26,7 @@ case "$2" in
   *)
   ;&
   logs)
-    EXCLUDE='apache dnsmasq mongodb fakemail remote kismet probes account paact .\[0-9\]'
+    EXCLUDE='apache dns mongodb fakemail remote kismet probes account paact mosq apt .\[0-9\]'
     EXCLUDE=$(for e in ${EXCLUDE//\ / }; do echo -n "-e $e "; done)
     
     LOGS=$(find /var/log $SEARCH | grep -v $EXCLUDE | grep -v $EXCLUDE2 )

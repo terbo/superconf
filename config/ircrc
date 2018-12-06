@@ -1,0 +1,25 @@
+/alias joinpart { /ignore *!*@* crap joins quits parts }
+/alias w { window }
+/alias wk { w kill }
+/alias wl { w list }
+#/alias wn { w next }
+/alias wn { w new hide next double on }
+#/alias wsa { w show_all double on }
+#/alias wha { w hide_others }
+/alias version { /ctcp $0- version }
+/alias Q { /quit its actual... factual... }
+/bind ^E end_of_line
+#/bind ^P window previous
+#/bind ^N window next
+/bind ^X switch_channels
+/set log off
+/set CLOAK 1
+/set TIMESTAMP ON
+/set TIMESTAMP_STRING %T
+/set IGNORE_TIME 0
+/set ALTNICK mux-
+/set MIRCS off
+/set FLOOD_PROTECTION off
+/set CLIENT_INFORMATION 1
+/fset format_version 0
+/echo Loaded .ircrc <geospeed>

@@ -1,0 +1,361 @@
+#!/usr/bin/python
+#
+# read /var/run/hostapd for interfaces to poll
+# read process list to find list of running hostapds (or get from hostapd_cli)
+# get mac address, connected time, transmitted packets
+# read arp table
+# match arp address to ip address
+# print matches
+# rinse repeat
+
+# now we're gonna ping
+# we're gonna slowly portscan
+# we're gonna make sure they have ap seperation and virtual networks
+# we're gonna direct them to virtual machines full of honey pots and old software
+# current rssi
+# probes??
+
+#
+# TODO: Turn the data structure into JSON..
+#
+
+import os, re, sys, time, string
+import subprocess, humanize as hm
+from datetime import datetime as dt
+import socket
+from netaddr import *
+from pprint import pprint as pp
+from json import dumps as jsondump
+from terminaltables import AsciiTable as Table
+
+hostapd_control_path = '/var/run/hostapd'
+hostapd_cli_path = '/usr/sbin/hostapd_cli'
+
+ifconfig_path = '/sbin/ifconfig'
+
+arp_path = '/usr/sbin/arp'
+arp_flags = '-an' 
+hostapd_interfaces = os.listdir(hostapd_control_path)
+hostapd_uptime = 0
+
+totals = {'rx': 0,'tx': 0,'time': 0, 'inactive': 0}
+
+clients = dict()
+arp_table = dict()
+hostapd_stats = dict()
+iwconfig_stats = dict()
+
+tx_power = -26
+
+macreg = r'^('+r'[:-]'.join([r'[0-9a-fA-F]{2}'] * 6)+r')$'
+
+sort_pref = 'rssi'
+
+display_mode = 'table'
+use_color = False
+
+client_fmt = {
+ 'ip': '0.0.0.0',
+ 'rssi': 0,
+ 'mac': '00:00:00:00:00:00',
+ 'vendor': 'Unknown',
+ 'connected': 1,
+ 'inactive': 1,
+ 'rx': 0,
+ 'tx': 0,
+ 'rxrate': 0,
+ 'txrate': 0,
+ 'thrurate': 0,
+ 'host': ''
+}
+
+if len(sys.argv)>1:
+  for argv in sys.argv:
+    if argv[0] == '-':
+      arg = argv[1]
+      if   arg == 'r': sort_pref = 'rssi'
+      elif arg == 'm': sort_pref = 'mac'
+      elif arg == 'v': sort_pref = 'vendor'
+      elif arg == 'c': sort_pref = 'connected'
+      elif arg == 's': sort_pref = 'inactive'
+      elif arg == 'd': sort_pref = 'rx'
+      elif arg == 'u': sort_pref = 'tx'
+      elif arg == 'h': sort_pref = 'host'
+      
+      elif arg == 'J': display_mode = 'json'
+      elif arg == 't': display_mode = 'table'
+      elif arg == 'L':
+        display_mode = 'loop'
+        use_color = True
+      elif arg == 'l': display_mode = 'list'
+      elif arg == 'C': use_color = True
+
+      else: print "Invalid option: " + arg
+
+def get_iwconfig():
+  iwconfig_cmd = "iw dev wlan0 station dump | egrep -e '(Station|signal avg|rate|expec)'"
+  
+  iwconfig_output = subprocess.Popen(iwconfig_cmd, shell=True, stdout=subprocess.PIPE).communicate()[0]
+  
+  iwconfig_ar = iwconfig_output.split('Station ')[1:]
+  
+  for line in iwconfig_ar:
+    line = line.replace('\t',' ')
+    lines = line.split('\n')
+    (mac,tmp,iface) = lines[0].split(' ')
+    iface = iface[0:-1]
+    rssi = lines[1].split(' ')[-2]
+    txrate = lines[2].split(' ')[-2]
+    rxrate = lines[3].split(' ')[-2]
+    thrurate = lines[4].split(' ')[-1]
+    
+    iwconfig_stats[mac] = {'iface': iface, 'rssi': rssi, 'txrate': txrate, 'rxrate': rxrate, 'thrurate': thrurate}
+
+    if mac not in clients.keys():
+      continue
+    
+    clients[mac]['rssi'] = rssi
+    clients[mac]['txrate'] = txrate
+    clients[mac]['rxrate'] = rxrate
+    clients[mac]['thrurate'] = thrurate
+
+def get_hostapd():
+  global hostapd_uptime, totals
+  
+  for hostapd_iface in hostapd_interfaces:
+    hostapd_cli_cmd = [hostapd_cli_path,'-i',hostapd_iface,'all_sta']
+    hostapd_uptime = (time.time() - int(os.stat('%s/%s' % (hostapd_control_path, hostapd_iface))[9]))
+
+    all_sta_output = subprocess.Popen(hostapd_cli_cmd,stdout=subprocess.PIPE).communicate()[0]
+    hostapd_output = subprocess.Popen([hostapd_cli_path,'status'],stdout=subprocess.PIPE).communicate()[0].split('\n')
+    
+    channel = int(re.sub('channel=','',hostapd_output[16]))
+    bssid = re.sub('bssid\[0\]=','',hostapd_output[21])
+    ssid = re.sub('ssid\[0\]=','',hostapd_output[22])
+    clientcount = int(re.sub('num_sta\[0\]=','',hostapd_output[23]))
+    
+    hostapd_stats[hostapd_iface] = [ssid, bssid, channel, clientcount]
+    
+    stas = re.split(macreg,all_sta_output, flags=re.MULTILINE)
+
+    mac = rx = tx = ctime = ''
+    for sta_output in stas:
+      
+      for line in sta_output.split('\n'):
+        if re.match(macreg,line):
+          mac = line
+        if re.match('rx_bytes',line):
+          rx = int(re.sub('rx_bytes=','',line))
+          totals['rx'] += rx
+        if re.match('tx_bytes',line):
+          tx = int(re.sub('tx_bytes=','',line))
+          totals['tx'] += tx
+        if re.match('inactive_msec=',line):
+          inactive = int(re.sub('inactive_msec=','',line))
+          totals['inactive'] += tx
+        if re.match('connected_time=',line):
+          ctime = int(re.sub('connected_time=','',line))
+          totals['time'] += ctime
+
+      if mac and rx and tx and ctime:
+        if not clients.has_key(mac):
+          clients[mac] = {'rssi': 0}
+        
+        clients[mac]['connected'] = ctime
+        clients[mac]['inactive'] = inactive
+        clients[mac]['rx'] = rx
+        clients[mac]['tx'] = tx
+        clients[mac]['vendor'] = get_vendor(mac)
+    
+    #ip = arp_table[mac][0]
+    #rssi = iwconfig_stats[mac]['rssi'] + ' dBm'
+
+def get_arp_table():
+  arp_output = subprocess.Popen([arp_path,arp_flags],
+                stdout=subprocess.PIPE).communicate()[0].split('\n')
+
+  for line in xrange(len(arp_output)):
+    l = arp_output[line].split(' ')
+    try:
+      iface = l[6]
+      
+      #if iface in hostapd_interfaces:
+      ip = l[1].replace('(','').replace(')','')
+      mac = l[3]
+      
+      if re.match('[A-Z0-9][A-Z0-9]:',mac,re.IGNORECASE):
+        arp_table[mac] = [ip, iface]
+        clients[mac]['ip'] = ip
+        
+        try:
+            host = socket.gethostbyaddr(ip)[0][0:12]
+        except:
+            host = ip
+        clients[mac]['host'] = host
+      #else:
+      #  clients[mac]['ip'] = '0.0.0.0'
+        #  clients[mac]['host'] = ''
+    except:
+      pass
+
+def get_vendor(mac):
+  try: vendor = EUI(mac).oui.registration().org
+  except: vendor = 'Unknown'
+  return vendor
+
+def rssiDist(rssi, m=.9,ft=True):
+  if rssi > -70:
+    m = m + .05
+  if rssi > -72:
+    m = m + .05
+  
+  r = pow(10,((int(rssi)*m) + 38.45) / tx_power) 
+  if ft:
+    return "%.1f" % (r * 3.28084)
+  else:
+    return "%.1f" % r
+
+def white(s):
+  if use_color:
+    return '%s%s%s%s' % (Style.BRIGHT, Fore.WHITE, s, Style.RESET_ALL)
+  else:
+    return s
+
+def lgreen(s):
+  if use_color:
+    return '%s%s%s%s' % (Style.DIM, Fore.GREEN, s, Style.RESET_ALL)
+  else:
+    return s
+
+def green(s):
+  if use_color:
+    return '%s%s%s' % (Fore.GREEN, s, Style.RESET_ALL)
+  else:
+    return s
+
+def bgreen(s):
+  if use_color:
+    return '%s%s%s%s' % (Style.BRIGHT, Fore.GREEN, s, Style.RESET_ALL)
+  else:
+    return s
+
+def lblue(s):
+  if use_color:
+    return '%s%s%s%s' % (Style.DIM,Fore.BLUE, s, Style.RESET_ALL)
+  else:
+    return s
+
+def blue(s):
+  if use_color:
+    return '%s%s%s' % (Fore.BLUE, s, Style.RESET_ALL)
+  else:
+    return s
+
+def bblue(s):
+  if use_color:
+    return '%s%s%s%s' % (Style.BRIGHT, Fore.BLUE, s, Style.RESET_ALL)
+  else:
+    return s
+
+def gray(s):
+  if use_color:
+    return '%s%s%s%s' % (Style.DIM,Fore.WHITE, s, Style.RESET_ALL)
+  else:
+    return s
+
+def lcyan(s):
+  if use_color:
+    return '%s%s%s' % (Fore.CYAN, s, Style.RESET_ALL)
+  else:
+    return s
+
+def draw_table(header=False):
+  if use_color:
+    print Style.RESET_ALL
+  
+  headers = 'IP MAC/VENDOR DNS RSSI DIST CONNECTED/IDLE RX/TX RATE-RX/TX/THRU'.split(' ')
+ 
+  for h in range(0,len(headers)):
+    if headers[h] == 'CONNECTED':
+      headers[h] = green(headers[h])
+    else:
+      headers[h] = gray(headers[h])
+
+  table = [headers]
+
+  for mac in clients:
+    for field in client_fmt.keys():
+      if not clients[mac].has_key(field):
+        clients[mac].update({field: client_fmt[field]})
+
+  for mac in sorted(clients, lambda x,y: cmp(clients[x][sort_pref], clients[y][sort_pref])):
+    client = clients[mac]
+    macven = '%s:%s:%s' % ( lgreen(mac[0:2]), white(client['vendor'][0:10]), lgreen(mac[12:]) )
+    connected = hm.naturaltime(client['connected']).split(' ')
+    
+    if connected[0] != 'a':
+      connected[0] = gray(connected[0])
+    connected[1] = lcyan(' '.join(connected[1:]))
+    del connected[2:]
+
+    rates = '%s/%s/%s' % ( blue(client['txrate']), lblue(client['rxrate']), bblue(client['thrurate']))
+    
+    table.append([
+        lblue(client['ip']), macven,
+        bgreen(client['host']), lcyan(client['rssi']),
+        white(rssiDist(client['rssi'])),
+        ' '.join(connected) + '/' + str(client['inactive'] / 1000) + 's',
+        white(hm.naturalsize(client['rx'],gnu=1)) + '/' +  lgreen(hm.naturalsize(client['tx'],gnu=1)),
+        rates ])
+  
+  t = Table(table)
+  t.title = header
+
+  print t.table
+
+def get_stats(show=True):
+  output = ''
+
+  for hostapd_iface in hostapd_interfaces:
+    iface = hostapd_stats[hostapd_iface]
+    
+    output = output + '[%s] "%s" Ch.%s (%s - %s) ' % ( len(hostapd_interfaces), white(iface[0]), bblue(iface[2]), lgreen(iface[1]),
+                                                      get_vendor(iface[1]) )
+    output = output + 'up %s  [In:%s/Out:%s]' % ( lgreen(hm.naturaldelta(hostapd_uptime)), white(hm.naturalsize(totals['rx'],gnu=True)),
+                                                  white(hm.naturalsize(totals['tx'],gnu=True)))
+    if show:
+      print output
+
+  if not show:
+    return output
+
+def get_all():
+  get_hostapd()
+  get_arp_table()
+  get_iwconfig()
+ 
+if __name__ == '__main__':
+  get_all()
+  
+  if display_mode == 'json':
+    print(jsondump(clients))
+
+  elif display_mode in ['table','loop']:
+    if use_color:
+      from colorama import init, Fore, Back, Style
+      init()
+    draw_table(get_stats(0))
+  
+  if display_mode == 'loop':
+    from time import sleep
+    while True:
+      try:
+        totals = {'rx': 0,'tx': 0,'time': 0, 'inactive': 0}
+        get_all()
+        print "[H[J"
+        draw_table(get_stats(0))
+        sleep(1)
+      except Exception as e:
+        print(e)
+        sleep(5)
+        continue

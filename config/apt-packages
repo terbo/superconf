@@ -1,11 +1,13 @@
 ## packages I commonly use
+## make into curses select boxes?
 
-## system
+### system
+adb
 acpi
-apache2
 autossh
 avahi-daemon
 bandwidthd
+bc
 bmon
 bootlogd
 bwm-ng
@@ -17,9 +19,11 @@ fuse
 gpm
 htop
 ifstat
+ifconfig
 inetutils-tools
 inotify
 inotify-tools
+iftop
 iptraf
 iw
 iwconfig
@@ -27,11 +31,11 @@ lm-sensors
 less
 lzh
 lzop
-macchanger
 mlocate
 monit
 ncdu
 net-tools
+ntop
 nload
 localepurge
 locate
@@ -40,11 +44,14 @@ nfs-common
 ntfs-3g
 ntfsprogs
 ntpdate
+photorec
+procps
 openssh
-parallel-ssh
 rar
+rename
 ruby
 screen
+smartmontools
 sshfs
 testdisk
 tcsh
@@ -56,7 +63,7 @@ xtail
 zip
 
 
-## development
+### development
 autoconf
 automake
 autotools-dev
@@ -71,32 +78,38 @@ gcc
 git
 strace
 npm
+perldoc
 python
 python-setuptools
 python-pip
 python2.7-dev
 
 
-## network
-BitchX
+### network
+apache2
 assh
+BitchX
 chromium
 curl
 dnsmasq
 dnsutils
 gpsd
+ipcalc
+macchanger
+parallel-ssh
+syncthing
 tcpdump
 tshark
-syncthing
 wavemon
+wget
 wicd-curses
 wireless-tools
 wireshark
+w3m-img
+youtube-dl
 
 
-
-
-## media
+### media
 alsa-tools
 alsa-utils
 audacity
@@ -112,16 +125,12 @@ lame
 libav-tools
 mencoder
 mencoder2
-w3m-img
-wget
-youtube-dl
-toilet
 toilet-fonts
+toilet
 xaos
 
 
-
-## security
+### security
 aircrack-ng
 nmap
 mdns-scan

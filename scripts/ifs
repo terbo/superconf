@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+# This will be multipurpose, but mainly for:
+#   displaying concise info about all interfaces
+#   consolidating ifconfig and iwconfig output
+#   reporting info from remote machines
+# * needs to take input, and output to json
+# * either stdin or file
+# perhaps add airmon-ng output?
+# and also would like iw phy/dev output.
+
+import sys, os, getopt, subprocess
+
+from netengine.utils import IfConfig as IfParser
+from netengine.utils import IwConfig as IwParser
+from json import dumps as jsondump
+
+actions = {'output':'text'}
+
+try:
+  options, arguments = getopt.getopt(sys.argv[1:], 'wfj')
+  for option, value in options:
+    if option in ('-j','--json'):
+      actions.update({'output':'json'})
+    elif option in ('-f','--ifile'):
+      actions.update({'input':'ifconfig'})
+      actions.update({'file':arguments[0]})
+    elif option in ('-w','--wfile'):
+      actions.update({'input':'iwconfig'})
+      actions.update({'file':arguments[0]})
+    elif option in ('-h','--help'):
+      usage(__doc__)
+    else:
+      assert False, "Programming error: Unhandled option!"
+except Exception as e:
+  print("Error: %s" % e)
+  sys.exit(1)
+
+if actions.has_key('file'):
+  try:
+    output = ''.join(open(actions['file']).readlines())
+  except Exception as e:
+    print('Error opening %s: %s' % ( actions['file'], e) )
+    sys.exit(1)
+  if actions['input'] == 'iwconfig':
+    objs = [IwParser(output)]
+  else:
+    objs = [IfParser(output)]
+else:
+  pi = subprocess.Popen(['ifconfig','-a'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  pw = subprocess.Popen('iwconfig', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+  pioutput, pierrors = pi.communicate()
+  pwoutput, pwerrors = pw.communicate()
+
+  objs = [IfParser(pioutput), IwParser(pwoutput)]
+
+emptyip = '0.0.0.0'
+
+for i in xrange(len(objs)):
+  obj = objs[i].interfaces
+  
+  if actions['output'] == 'json':
+    #TODO: Consolidate both
+    print jsondump(obj)
+  elif (actions.has_key('file') and actions['input'] == 'ifconfig') or (actions['output'] == 'text' and i == 0):
+    for iface in obj:
+      print '%-16s: %-16s %-48s  mask: %s bcast: %s' % (iface['name'], iface['inet'] or emptyip,
+        iface['hardware_address'], iface['mask'] or emptyip, iface['broadcast'] or emptyip)
+  elif actions.has_key('file') and actions['input'] == 'iwconfig' or (actions['output'] == 'text'):# and i == 1):
+    for iface in obj:
+      if iface.has_key(iface['name']+'_ieee_802.11_mode'):
+        mode = iface[iface['name']+'_ieee_802.11_mode']
+      #else:
+      #  mode = iface['mode']
+      #print '%-16s: %14s %10s %10s %6s %12s' % (iface['name'], iface['access_point'], iface['essid'], iface['tx_power'],
+      #                                          iface['frequency'], mode)
+
+#    ['fragment_thr', 'rts_thr', 'encryption_key', 'frequency', 'ieee', 'kismon1_ieee_802.11_mode', 'retry_short_limit', 'power_management', 'name', 'wlx001f1f27d24f_ieee_802.11_essid', 'wlx00c0ca7630ed_ieee_802.11_essid', 'essid', 'tx_power', 'access_point', 'mode']
+

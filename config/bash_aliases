@@ -16,20 +16,24 @@ nodebug
 ## ??
 
 ## shell and file ops
-alias d='ls -h --color -laF'
+function d() {
+  ls -h --color -laF ${*} 2>&1 | bat
+}
+
+alias apt-get='apt-get -y'
+alias l=ls
 alias ls='ls --color'
 alias lsort='ls -Sharl'
 alias df='df -h'
 
+alias diffy='diff --color=always -y --suppress-common-lines'
 alias j='jobs -l'
 alias -- -='cd -'
 
 alias ...='cd ../..'
 alias ....='cd ../../..'
-alias h='history'
+alias h='history 75'
 alias m='$PAGER'
-alias v='vi'
-#alias vi='$EDITOR'
 
 alias rm='rm -vi'
 alias cp='cp -vi'
@@ -53,28 +57,19 @@ alias lane='perl -lane'
 alias wget='wget --no-check-certificate'
 alias vol='mpc volume'
 
-vim_undodir() {
-  dir="$HOME/.vim/undodir"
-  for oname in ${dir}/*
-  do
-    name="$(echo $oname | sed -e 's@.*/@@' -e 's@%@/@g' )"
-    size=$(stat -c '%s' $oname)
-    #fsize=$(echo $size | perl -ne 'use Number::Bytes::Human qw(format_bytes); print format_bytes($_)')
-    echo "$name - $size $(nformat -s $size)"
-    echo "$name - $fsize"
-  done
+export CGREP_COLOR='-aHn --color=always'
+alias cgrep="egrep ${CGREP_COLOR}"
+alias grep='egrep'
 
-  #later:
-  #ls -l `ls -1ct | sed -e 's@.*/@@' -e 's@%@/@g' | head -30`
+function hgrep() {
+  cgrep -ar "${1}" ~/.history | sed 's#^.*/.history/bash.##g' | sort -t ':' -k3 | ccze -A
 }
 
-CGREP_COLOR='-A1 -B2 -aHn --color=always'
-alias grep='egrep'
-alias cgrep='GREP_COLOR=${CGREP_COLOR} grep'
-
-function volfade() { local step stop vol dir; dir='+'; [ -z "$1" ] && stop=100; [ -n "$1" ] && stop="$1"; [ -z "$2" ] && step='.4'; [ -n "$2" ] && step="$2"; vol=$( mpc volume | sed -e s/volume:\ // -e s/%// ); [ $stop -lt $vol ] && dir='-'; while [ $vol -ne $stop ]; do mpc -q volume $vol; vol=$(( $vol $dir 1 )); echo -ne "$step $vol\r"; sleep $step; done; }
+alias discus='discus|grep -v "0 KB"'
 
 alias acpi='acpi -V'
+
+alias opkg='opkg -t /data/opkg --cache /data/opkg-cache'
 
 test -d ~/.history || mkdir ~/.history
 test -d ~/.vim/undodir || mkdir -p ~/.vim/undodir
@@ -86,11 +81,40 @@ if [ -t 1 ]; then
   bind "set completion-ignore-case on"
   bind "set completion-map-case on"
   bind "set show-all-if-ambiguous on"
+  bind -r "\C-w" # finally ...
+  bind "\C-w":backward-kill-word
 fi
 
-alias sensors='pssh -Ph ~/.pssh'
+alias sensors='pssh -Ph ~/.pssh-sensors'
 alias sensorstats="sensors 'uname -a; top -bn1|head -4;df -h .|tail -1; '"
 alias senscreen='screen -S sensors -c /root/.screen/sensors.screenrc'
-#echo "$HOSTNAME:${PPWD##*/}/${PWD##*/}"
+#echo "$HOSTNAME:${PPWD##*/}/${PWD##*/}" ? excuse me?
 alias services='service --status-all | egrep \\+'
 alias iwinfo='iw phy phy0 info'
+
+alias scrx='screen -rx'
+alias scrls='screen -ls'
+alias system-overview='(scrls |& grep sysmon) || screen -S sysmon -T screen -c /root/.screen/system-overview.screenrc'
+
+alias beepwar='while true; do echo  > /dev/tty1; sleep 1; echo  > /dev/tty1; sleep 1; ssh timer "echo  > /dev/tty1"; sleep 1; ssh timer "echo  > /dev/tty1"; sleep 2; done'
+
+#alias scrsw='while true; do scrsel 0; sleep 7; scrsel 1; sleep 9; scrsel 2; sleep 8; scrsel 3; sleep 7; scrsel 4; sleep 5; done'
+
+function scrsw() {
+  NUM=$1
+  WAIT=$2
+
+  test -z "$WAIT" && echo "$0 MAXSCREENS WAIT" && return
+  
+  while true; do
+    for i in `seq 0 ${NUM}`; do
+      scrsel $i
+      sleep $(( $WAIT + $(($RANDOM % 4))))
+    done
+  done
+}
+
+function pub() {
+  TOPIC=$1; shift
+  mosquitto_pub -t "${TOPIC}" -m "$*"
+}

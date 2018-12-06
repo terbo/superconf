@@ -1,0 +1,9 @@
+#!/bin/bash
+if [ -z "$1" ]; then
+  SERIAL=/dev/ttyUSB0
+else
+  SERIAL=$1
+fi
+
+esptool --port ${SERIAL} --before default_reset --after hard_reset write_flash -fs detect -ff 80m -fm dio \
+  0x00000 ~/dev/yaota8266/yaota8266.bin 0x3c000 ~/dev/micropython/ports/esp8266/build/firmware-ota.bin

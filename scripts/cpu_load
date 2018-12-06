@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+use warnings 'all';
+use utf8;
+use List::Util qw(sum);
+
+($|, $i) = qw(1 0);
+($pi, $pt) = qw(0 0);
+
+while ($i <= 1) {
+  open(STAT, '/proc/stat') or die "WTF: $!";
+    while (<STAT>) {
+      next unless /^cpu\s+[0-9]+/;
+      @cpu = split /\s+/, $_;
+      shift @cpu;
+      $id = $cpu[3];
+      $t = sum(@cpu);
+      $di = $id - $pi;
+      $dt = $t - $pt;
+      $du = 100 * ($dt - $di) / $dt;
+      $pi = $id;  
+      $pt = $t;
+    }
+  close STAT;
+  sleep 1;
+  $i++;
+}
+
+printf "%0.2f\n", $du;

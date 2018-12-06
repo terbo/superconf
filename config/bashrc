@@ -29,11 +29,22 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
-else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1=''
+    
+    if [ "$HOSTNAME" = 'server' ]; then
+      if [ $(($RANDOM % 4)) -eq 0 ]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;33m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+      else
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;33m\]\u@\h\[\033[00m\]:\[\033[01;37m\]\w\[\033[00m\]\$ '
+      fi
+    fi
+
+    test "$HOSTNAME" = 'host1' && PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    test "$HOSTNAME" = 'host2' && PS1='${debian_chroot:+($debian_chroot)}\[\033[01;38m\]\u@\h\[\033[00m\]:\[\033[01;33m\]\w\[\033[00m\]\$ '
+    test -z "$PS1" && PS1='${debian_chroot:+($debian_chroot)}\[\033[01;36m\]\u@\h\[\033[00m\]:\[\033[01;38m\]\w\[\033[00m\]\$ '
 fi
-unset color_prompt force_color_prompt
+
+#unset color_prompt force_color_prompt
 
 # If this is an xterm set the title to user@host:dir
 case "$TERM" in
@@ -50,9 +61,9 @@ if [ -x /usr/bin/dircolors ]; then
     alias ls='ls --color=auto'
 fi
 
-#if [ -f ~/.bash_aliases ]; then
-#    . ~/.bash_aliases
-#fi
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
 
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
@@ -82,6 +93,8 @@ shopt -s checkwinsize
 shopt -s histappend
 shopt -s cmdhist
 
+shopt -s extdebug
+
 set -o noclobber
 set enable-meta-key off
 
@@ -90,5 +103,11 @@ export HISTTIMEFORMAT='  %F %T  '
 export PAGER='less -RXE'
 export EDITOR='vim'
 export LANG=C
+
+stty werase undef
+
+echo $PATH | grep -q ~/bin || PATH=${PATH}:~/bin
+
+#test $(($RANDOM % 4)) -eq 0 &&  markov /etc/fortunes.txt
 
 source `which ss`

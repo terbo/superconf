@@ -1,0 +1,20 @@
+#!/bin/sh
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+IPTABLES='/sbin/iptables'
+IF_OUT=$1
+IF_IN=$2
+
+iptables -F
+
+$IPTABLES -A FORWARD -i $IF_OUT -o $IF_IN -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPTABLES -A FORWARD -i $IF_IN  -o $IF_OUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+$IPTABLES -A FORWARD -i $IF_IN  -o $IF_OUT  -j ACCEPT
+$IPTABLES -A FORWARD -i $IF_OUT -o $IF_IN   -j ACCEPT
+
+$IPTABLES -t nat -A POSTROUTING -o $IF_OUT -j MASQUERADE
+$IPTABLES -t nat -A POSTROUTING -o $IF_IN  -j MASQUERADE
+
+#$IPTABLES -A INPUT -s 198.105.244.64 -j DROP

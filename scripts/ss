@@ -1,5 +1,5 @@
 #!/bin/bash 
-# T-10 . shellsync v.000000 A
+# T-10 . shellsync v.000002
 
 #
 # shell sync
@@ -155,12 +155,13 @@ check_os_arch() {
 }
 
 check_cpu_load() {
-  export CPULOAD=$( w|head -1|sed -e 's/.*average:\s//;' |cut -d, -f1-1 )
+  export CPULOAD=$(cpu_load)
+  #export CPULOAD=$( w|head -1|sed -e 's/.*average:\s//;' |cut -d, -f1-1 )
   echo $CPULOAD
 }
 
 check_memory() {
-  [[ "${OS}" =~ 'inux' ]] && MEMINFO=$( free )
+  [[ "${OS}" =~ 'inux' ]] && MEMINFO=$( free -m )
   [[ "${OS}" =~ 'Darwin' ]] && MEMINFO=$( vmstat )
   echo $MEMINFO
 }
@@ -176,6 +177,16 @@ check_system() {
   check_memory
   check_disks &
   PROCS=$(nproc)
+}
+
+check_base_programs() {
+  BASH_VERSION=$(check_bash_version)
+  TCSH_VERSION=$(check_tcsh_version)
+  SED_VERSION=$(check_sed_version)
+  AWK_VERSION=$(check_awk_version)
+  GREP_VERSION=$(check_grep_version)
+  BUSYBOX_VERSION=$(check_busybox_version)
+  SYSTEMINFO=$(check_system)
 }
 
 get_ip() {
@@ -211,8 +222,40 @@ pingcheck_hosts() {
   #${!PINGHOSTS[#]}
 }
 
+lagms() {
+  local LAG="$(pingcheck ${1} 2|& egrep '(rtt|round-trip).*avg'| sed -e 's/.*\ =\ //' -e 's/\ ms//' | cut -d\/ -f2-2 )ms"
+  if [ "${LAG}" = 'ms' ]; then
+    echo ''
+  else
+    echo ${LAG} | sed 's/ms$//'
+  fi
+  #echo $NETPING
+}
+
+lancheck_json() {
+  local IPS=$(cat /proc/net/arp | sed -e 's/\ .*//' | grep -v -e IP -e Addres)
+  local OUT="$(
+    echo -n '{'
+    for ip in $IPS
+      do local LAG=$(lagms $ip)
+      test -z "$LAG" || echo -n "\"$(gethost $ip)\": \"$(printf '%.2f' ${LAG})\", "
+    done
+    echo '}'
+  )"
+  echo "${OUT}" | sed 's/, }$/}/g'
+}
+
+lancheck() {
+  #IPS=$(arp -an | sed -e 's/.*\(//' -e 's/\)\.*//' -e 's/\ .*//' | grep -v -e IP -e Addres)
+  IPS=$(cat /proc/net/arp | sed -e 's/\ .*//' | grep -v -e IP -e Addres)
+  for IP in $IPS; do LAG=$(lagms $IP); test -z "$LAG" || echo -n "$(gethost $IP) ($(printf '%.2fms' ${LAG})) "; done
+}
+
+gethost() {
+  test -z "$1" || perl -e 'use Socket; $ip = inet_aton("'${1}'"); ($_) = gethostbyaddr($ip, AF_INET); ($_) = split /\./; print'
+}
 check_net_latency() {
-  export NETPING="$(pingcheck 8.8.4.4 | grep 'rtt.*avg'| \sed -e 's/.*\ =\ //' -e 's/\ ms//' | cut -d\/ -f2-2 )ms"
+  export NETPING="$(pingcheck 8.8.4.4 | grep '(rtt|round-trip).*avg'| sed -e 's/.*\ =\ //' -e 's/\ ms//' | cut -d\/ -f2-2 )ms"
   #echo $NETPING
 }
 
@@ -231,7 +274,6 @@ check_network() {
 network_scan() {
   echo $BIN_NMAP $( localiprange )
 }
-
 
 #
 # user apps
@@ -304,20 +346,14 @@ check_devel_programs() {
   CPAN_VERSION=$( cpan --version|head -1 )
 }
 
-BASH_VERSION=$(check_bash_version)
-TCSH_VERSION=$(check_tcsh_version)
-SED_VERSION=$(check_sed_version)
-AWK_VERSION=$(check_awk_version)
-GREP_VERSION=$(check_grep_version)
-BUSYBOX_VERSION=$(check_busybox_version)
-SYSTEMINFO=$(check_system)
-
-
-#check_admin_programs
-#check_devel_programs
-#check_server_programs
-check_user_programs
-
+## not run
+check_all_programs() {
+  check_base_programs
+  check_admin_programs
+  check_devel_programs
+  check_server_programs
+  check_user_programs
+}
 
 ## 2.  Now for the utility functions.
 ##
@@ -340,10 +376,6 @@ checkpid() {
 
 stoppid() {
   return
-}
-
-ress() {
- . `which ss`
 }
 
 # (re) create the conditions for ss to exist
@@ -567,56 +599,56 @@ spinner() {
 
 calc(){ echo $(( $@ )) ; }
 
-print_pre_prompt() {
+#print_pre_prompt() {
   # get the length of left hand prompt - 1
   #local PAD=$( echo $HOSTNAME $USER $PWD|wc -L )
   # constantly updated by bash now
-  TIME=$( sstime ) 
-  
-  if [ "$(( $RANDOM % 2 ))" -eq 0 ]; then
-    jobs -l
-  fi
- 
-  #if [ "$LAST_REHASH" ]; then
-  #  . `which ss`
-  #fi
+#  TIME=$( sstime ) 
+#  
+#  if [ "$(( $RANDOM % 2 ))" -eq 0 ]; then
+#    jobs -l
+#  fi
+# 
+#  #if [ "$LAST_REHASH" ]; then
+#  #  . `which ss`
+#  #fi
+#
+#  JOBS=$( jobs | wc -l )
+#
+#  # periodic clauses
+#  if [ "$(( ${TIME##*:} % 4 ))" -eq 0  ]; then
+#    SCREENS=$( screen -ls | /bin/fgrep '(' | wc -l )
+#  elif [ "$(( ${TIME##*:} % 5 ))" -eq 0 ]; then
+#    history -a
+#    test "$JOBS" -eq 0 && stitle
+#  #elif [ "$(( ${TIME##*:} % 6 ))" -eq 0 ]; then
+#  #  true#if [ "$(( $RANDOM % 2))" -eq 0 ]; then
+#      #check_cpu_load
+#    #else
+#      #true #check_net_latency
+#  #  fi
+#  fi  
+#    # write history every 20 seconds
+#  #elif [[ $(( ${TIME##*:} )) -lt 00 ]]; then
+#    # put cpu load in prompt every minute
+#    #echo Top of the minute
+#    #NOWPLAYING=$( check_mpd_song )
+#    #check_cpu_load 
+#  
+#  # could be a func promptdate
+#  # show if youre on console or remote, maybe a breadtrail?
+#  REMOTE=''
+#  [ -n "$REMOTEHOST" ] && REMOTE="${REMOTEHOST}"
+#  [ -n "$DISPLAY" ] && REMOTE="${DISPLAY}"
+#  local LPROMPT="${REMOTE/.*/} [${JOBS}]"
+#  export LLEN=$( echo -n "$LPROMPT $NETPING $CPULOAD (s:$SCREENS) [$TIME]"| wc -L )
+#
+#  # subtract top left prompt from date/extra info length
+#  export ROFFSET=$(( $COLUMNS - $LLEN ))
+#  printf "${LPROMPT}%${ROFFSET}s$NETPING $CPULOAD (s:${SCREENS})  [${TIME}]\n"
+#}
 
-  JOBS=$( jobs | wc -l )
-
-  # periodic clauses
-  if [ "$(( ${TIME##*:} % 4 ))" -eq 0  ]; then
-    SCREENS=$( screen -ls | /bin/fgrep '(' | wc -l )
-  elif [ "$(( ${TIME##*:} % 5 ))" -eq 0 ]; then
-    history -a
-    test "$JOBS" -eq 0 && stitle
-  elif [ "$(( ${TIME##*:} % 6 ))" -eq 0 ]; then
-    if [ "$(( $RANDOM % 2))" -eq 0 ]; then
-      check_cpu_load
-    else
-      check_net_latency
-    fi
-  fi  
-    # write history every 20 seconds
-  #elif [[ $(( ${TIME##*:} )) -lt 00 ]]; then
-    # put cpu load in prompt every minute
-    #echo Top of the minute
-    #NOWPLAYING=$( check_mpd_song )
-    #check_cpu_load 
-  
-  # could be a func promptdate
-  # show if youre on console or remote, maybe a breadtrail?
-  REMOTE=''
-  [ -n "$REMOTEHOST" ] && REMOTE="${REMOTEHOST}"
-  [ -n "$DISPLAY" ] && REMOTE="${DISPLAY}"
-  local LPROMPT="${REMOTE/.*/} [${JOBS}]"
-  export LLEN=$( echo -n "$LPROMPT $NETPING $CPULOAD (s:$SCREENS) [$TIME]"| wc -L )
-
-  # subtract top left prompt from date/extra info length
-  export ROFFSET=$(( $COLUMNS - $LLEN ))
-  printf "${LPROMPT}%${ROFFSET}s$NETPING $CPULOAD (s:${SCREENS})  [${TIME}]\n"
-}
-
-export PROMPT_COMMAND=print_pre_prompt
+#export PROMPT_COMMAND=print_pre_prompt
 
 ## Welcome to the system.
 ##
@@ -669,78 +701,8 @@ stitle() {
   echo -e ${T}${T2}
 }
 
-
-## Bash Settings
-
-unset HISTCONTROL
-HISTFILESIZE=9999999999
-export MPD_HOST=mp3
-
-shopt -s autocd
-shopt -s dirspell
-shopt -s cdspell
-
-shopt -s checkjobs
-
-shopt -s checkwinsize
-shopt -s histappend
-shopt -s cmdhist
-
-set enable-meta-key off
-
-color_prompt=yes
-force_color_prompt=yes
-
-set -o noclobber
-
-export HISTTIMEFORMAT='  %F %T  '
-
-PAGER='less -RXE'
-EDITOR='vim'
-LANG=C
-
-## shell and file ops
-alias d='ls -h --color -laF'
-alias ls='ls -F --color'
-alias l='ls'
-alias lsort='ls -Sharl'
-alias df='df -h'
-
-alias j='jobs -l'
-
-# double dash evaluates to single in cmd
-alias -- -='cd -'
-
-alias ...='cd ../..'
-alias ....='cd ../../..'
-alias h='history'
-alias m='$PAGER'
-alias v='vi'
-#alias vi='$EDITOR'
-
-alias rm='rm -vi'
-alias cp='cp -vi'
-alias mv='mv -vi'
-
-alias rmf='/bin/rm -fv'
-alias cpf='/bin/cp -fv'
-alias mvf='/bin/mv -fv'
-
-alias -- +x='chmod +x'
-alias -- -x='chmod -x'
-
-## common
-
-alias rehash='source ~/.bashrc'
-alias re=rehash
-
 #alias ircname='shuf ${HOME}/.ircnames|head -1'
 #export IRCNAME=$(ircname)
-
-alias sed='sed -r'
-alias lane='perl -lane'
-
-alias vol='mpc volume'
 
 function loop ( ) {
   while true;
@@ -748,31 +710,6 @@ function loop ( ) {
     sleep $1;
   done
 }
-
-vim_undodir() {
-  dir="$HOME/.vim/undodir"
-  for oname in ${dir}/*
-  do
-    name="$(echo $oname | sed -e 's@.*/@@' -e 's@%@/@g' )"
-    size=$(stat -c '%s' $oname)
-    #fsize=$(echo $size | perl -ne 'use Number::Bytes::Human qw(format_bytes); print format_bytes($_)')
-    echo "$name - $size $(nformat -s $size)"
-    echo "$name - $fsize"
-  done
-
-  #later:
-  #ls -l `ls -1ct | sed -e 's@.*/@@' -e 's@%@/@g' | head -30`
-}
-
-GREP_COLOR='-aHn --color=always'
-alias grep='egrep'
-#alias cgrep='GREP_COLOR=${CGREP_COLOR} grep'
-
-alias scrx='screen -rx'
-alias scrls='screen -ls'
-alias system-overview='(scrls |& grep sysmon) || screen -S sysmon -T screen -c /root/.screen/system-overview.screenrc'
-
-function volfade() { local step stop vol dir; dir='+'; [ -z "$1" ] && stop=100; [ -n "$1" ] && stop="$1"; [ -z "$2" ] && step='.4'; [ -n "$2" ] && step="$2"; vol=$( mpc volume | sed -e s/volume:\ // -e s/%// ); [ $stop -lt $vol ] && dir='-'; while [ $vol -ne $stop ]; do mpc -q volume $vol; vol=$(( $vol $dir 1 )); echo -ne "$step $vol\r"; sleep $step; done; }
 
 function volfade() {
   local step stop vol dir;
@@ -806,16 +743,205 @@ function volfade() {
   done;
 }
 
-alias acpi='acpi -V'
+vim_undodir() {
+  dir="$HOME/.vim/undodir"
+  for oname in ${dir}/*
+  do
+    name="$(echo $oname | sed -e 's@.*/@@' -e 's@%@/@g' )"
+    size=$(stat -c '%s' $oname)
+    #fsize=$(echo $size | perl -ne 'use Number::Bytes::Human qw(format_bytes); print format_bytes($_)')
+    echo "$name - $size " #$(nformat -s $size)"
+    echo "$name - $fsize"
+  done
 
-test -d ~/.history || mkdir ~/.history
-test -d ~/.vim/undodir || mkdir -p ~/.vim/undodir
+  #later:
+  #ls -l `ls -1ct | sed -e 's@.*/@@' -e 's@%@/@g' | head -30`
+}
 
-if [ -t 1 ]; then
-  TTY=$(echo $(tty) | sed -e s@/dev/@@ -e s@pts/@@ )
-  [[ -n "$TTY" ]] && export HISTFILE="${HOME}/.history/bash.history.${TTY}"
+function cpkey() {
+  if [ "${#BASH_ARGV[@]}" = "0" ]; then
+    echo "Transfer and append public key to remote host."
+    echo -e "\n\nUsage: cpkey [host] [host] .."
+    return
+  fi
 
-  bind "set completion-ignore-case off"
-  bind "set completion-map-case off"
-  bind "set show-all-if-ambiguous on"
-fi
+  cat ~/.ssh/id_rsa.pub | ssh -v ${BASH_ARGV[0]} 'cat >> ~/.ssh/authorized_keys'
+}
+
+function cprcs() {              #but... do they ALL need brackets...?? is it cold??
+  if [ "${#BASH_ARGV[@]}" = "0" ]; then
+    echo "Copy config files to remote host:"
+    echo -e "\nUsage: cprcs [host] [host] .."
+    return
+  fi
+
+  DST=${BASH_ARGV[0]}
+  OUT=".superconf.$$.$(date +%H%S).${RANDOM}"
+
+  echo -e "Destination: ${DST}"
+  echo -e "Temporary dir: ${OUT}"
+  echo ""
+  echo "If this is incorrect, hit ctrl+c ..."
+
+  sleep 3
+
+  mkdir "/tmp/${OUT}" || ( echo "/tmp/${OUT} Exists.... What a co-inky-dink.." && return )
+
+  cp /etc/hosts /tmp/${OUT}/hosts
+  cp /etc/resolv.conf /tmp/${OUT}/resolv.conf
+
+  cp ~/superconf/script/ss "/tmp/${OUT}/ss"
+
+  cp ~/superconf/config/ssrc "/tmp/${OUT}/.ssrc"
+  cp ~/superconf/config/vimrc  "/tmp/${OUT}/.vimrc"
+  cp ~/superconf/config/bashrc  "/tmp/${OUT}/.bashrc"
+  cp ~/superconf/config/inputrc  "/tmp/${OUT}/.inputrc"
+  cp ~/superconf/config/bash_aliases  "/tmp/${OUT}/.bash_aliases"
+
+  cp ~/.ssh/id_rsa.pub  "/tmp/${OUT}/${USER}_${HOSTNAME}.pub"
+
+  cd "/tmp/${OUT}"
+
+  tar acf "/tmp/${OUT}.tgz" .
+
+  #cpkey "${DST}"
+
+  scp "/tmp/${OUT}.tgz" "${DST}:${OUT}.tgz" || ( echo -e "Error with scp $?" ; return )
+
+  ssh ${DST} "mv ${OUT}.tgz superconf.$(date +%m%d%Y).tgz"
+
+  cd -
+
+  rm -f "/tmp/${OUT}.tgz"
+  rm -rf "/tmp/${OUT}"
+}
+
+## from probr, to be integrated above soon
+
+#ok so lets see
+# cpu/mem every 30 seconds
+# disk/ping every minute
+
+# task: how to automate
+#     adding programs
+#     maintaining programs
+#     periodically launching programs
+#   across multiple non-homogenous systems
+
+# one - crontab
+# two - daemon
+# 3   - pssh
+## need to add any relevant, graphable peice of info
+## and critical, volatile piece of info
+## and save a few backups
+## maybe stat config files that are used?
+## and auto backup
+
+## num processes, top processses, their cpu/mem usage
+# get top procs by cpu and mem, and by net?
+
+### sensors can share signals and stations
+### continually publishing weighted rssis
+### and stations visible by 2.5 or more
+
+total_memory() {
+  free -m | awk 'NR==2 {print $2};'
+}
+
+used_memory() {
+  free -m | awk 'NR==2 {print $3};'
+}
+
+total_disk() {
+  /bin/df -k . | awk 'NR==2 { print $4 };'
+}
+
+used_disk() {
+  /bin/df -k . | awk 'NR==2 { print $3 };'
+}
+
+# Examples:
+# echo "CPU:   0% usr   0% sys   0% nic 100% idle   0% io   0% irq   0% sirq" | extract_idle_time => 100
+# echo "%Cpu(s):  0.0 us,  0.0 sy,  0.0 ni,100.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st" | extract_idle_time => 100.0
+# echo "%Cpu(s): 60.9 us,  0.0 sy,  0.0 ni, 39.1 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st" | extract_idle_time => 39.1
+# echo "%Cpu(s):100.0 us,  0.0 sy,  0.0 ni,  0.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st" | extract_idle_time => 0.0
+extract_idle_time() {
+  sed -e 's/.*C[pP][uU][^0-9.]+//g' -e 's/us.*//g' -e 's/%//' -e 's/\ *$//'
+  #sed -n 's/.*[^0-9]\([0-9]\+.\?[0-9]\+\)\%\? id.*/\1/p'
+}
+
+# An alternative would be to consider cpu core normalized load averages over 1 minute (see http://www.rackspace.com/knowledge_center/article/checking-system-load-on-linux)
+# NOTE: This command blocks and needs to wait for 1 second until the value is available
+# NOTE: Not Mac OS X compatible
+# Explanation:
+# Must ignore the first invalid value => therefore -n2 (according to http://stackoverflow.com/a/4940972 and http://linux.die.net/man/1/top)
+# Double grep prevents including the grep process itself
+# Tail only takes the second value and ignores the first
+# Awk inverts the idle time (taking steal time into consideration)
+# Sed removes the percentage sign '%' which is included in certain distributions (e.g. OpenWrt)
+# TODO: Find a way to support Mac OS X (arguments for top not available) and other Ubuntu with other languages (script fails because of cpu than cannot be get)
+
+cpu_load() {
+  top -b -n2 -d1 | grep -i "cpu" | grep "id" | tail -n+2 | extract_idle_time 
+}
+
+device_status() {
+  echo '{"cpu_load": "'$(cpu_load)'", "used_disk": "'$(used_disk)'", "total_disk": "'$(total_disk)'", "used_memory": "'$(used_memory)'", "total_memory": "'$(total_memory)'"}'
+}
+
+mpub() {
+  local CMD=$1
+  local BASE=$2 || '/sys'
+
+  case "$CMD" in
+    *stat*)
+      local FUNCTION='device_status'
+      local ENDPOINT='stats'
+      ;;
+    *mem*)
+      local FUNCTION='topmem'
+      local ENDPOINT='mem'
+      ;;
+    *cpu*)
+      local FUNCTION='topcpu'
+      local ENDPOINT='cpu'
+      ;;
+    *ping*)
+      local FUNCTION='lancheck_json'
+      local ENDPOINT='ping'
+      ;;
+    *time*)
+      local FUNCTION='localtime'
+      local ENDPOINT='time'
+      local BASE='/time'
+      ;;
+  esac 
+  
+  test -z "$ENDPOINT" || mosquitto_pub -h 10.0.0.1 -m "$($FUNCTION)" -t ${BASE}/${HOSTNAME}/$ENDPOINT
+}
+
+function localtime() {
+  local LTIME=$(python -c 'from time import localtime; d=localtime(); n = d[0:3] + (0,) + d[3:6] + (0,); print n')
+  local TZ=$(date +%z)
+  echo "$LTIME $TZ"
+}
+
+topmem() {
+  local MEMUSE=$(for i in $(top -b -n2 -d1 -o '%MEM' |head -14 | tail -7|awk -F' ' '{print $12":"$1, ":", $10, ","}'); do echo -n \"$i; done)
+  echo "{$MEMUSE}" | sed -e 's/,}$/}/' -e 's/","/", "/g'
+}
+
+topcpu() {
+  local CPUUSE=$(for i in $(top -b -n2 -d1 -o '%CPU' |head -14 | tail -7|awk -F' ' '{print $12":"$1, ":", $9, ","}'); do echo -n \"$i; done)
+  echo "{$CPUUSE}" | sed -e 's/,}$/}/' -e 's/","/", "/g'
+}
+
+mqttdaemon() {
+  touch /var/run/mqtt.enabled
+  ( while test -f /var/run/mqtt.enabled; do mpub topmem; mpub topcpu ; sleep 240 ; done) &
+  ( while test -f /var/run/mqtt.enabled; do mpub ping; sleep 360 ; done) &
+  ( while test -f /var/run/mqtt.enabled; do mpub stat ; sleep 210 ; done) &
+  ( while test -f /var/run/mqtt.enabled; do mpub time ; sleep 300 ; done ) &
+}
+
+export PROMPT_COMMAND=

@@ -1,0 +1,5 @@
+#!/bin/bash
+SERIAL=$1; shift
+FW=$1; shift
+
+esptool --port ${SERIAL} --before default_reset write_flash -fs detect -ff 80m -fm dio 0x00000 ${FW}
