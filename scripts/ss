@@ -917,7 +917,7 @@ mpub() {
       ;;
   esac 
   
-  test -z "$ENDPOINT" || mosquitto_pub -h 10.0.0.1 -m "$($FUNCTION)" -t ${BASE}/${HOSTNAME}/$ENDPOINT
+  test -z "$ENDPOINT" || mosquitto_pub -h 1.0.0.1 -m "$($FUNCTION)" -t ${BASE}/${HOSTNAME}/$ENDPOINT
 }
 
 function localtime() {
